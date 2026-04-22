@@ -1,0 +1,28 @@
+﻿<!DOCTYPE html>
+<html lang="en" class="leading-normal">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="site.css" />
+    <link rel="stylesheet" href="@Assets[$"{StylesBundleName}.styles.css"]" />
+
+    <HeadOutlet @rendermode="@renderMode" />
+</head>
+
+<body class="min-h-screen bg-white pb-8">
+    <Routes @rendermode="@renderMode" />
+    <script src="_framework/blazor.web.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+</body>
+
+</html>
+
+@code {
+    string StylesBundleName => typeof(App).Assembly.GetName().Name ?? "Talk.Web";
+    IComponentRenderMode renderMode = new InteractiveServerRenderMode(prerender: false);
+}

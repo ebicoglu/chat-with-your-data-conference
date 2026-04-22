@@ -1,0 +1,662 @@
+﻿@page "/"
+@using OpenAI.RealtimeConversation
+@using System.Data
+@using System.IO.Pipelines
+@using System.ComponentModel.DataAnnotations
+@using System.Reflection
+@using Talk.Web.Elements
+@using Talk.Web.Services
+@using Talk.Web.Services.ChartService
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject RealtimeConversationClient RealtimeClient
+@inject AiService AiService
+@inject RetryService RetryService
+@inject ChartGenerationService ChartService
+
+<div class="flex flex-row gap-4 items-start w-full">
+    <div class="flex-1 min-w-0">
+        <Speaker @ref="@speaker" />
+
+        <EditForm EditContext="@editContext">
+            <ObjectGraphDataAnnotationsValidator />
+
+            <div>
+                <div class="flex items-center py-1">
+                    <h1 class="flex-1 text-center text-3xl sm:text-4xl font-bold tracking-tight">🗣️ Talk to Your Data</h1>
+                    <MicControl Status="micStatus" OnClick="ChangeMicStatusAsync" class="ml-4 mr-4 shrink-0" />
+                </div>
+        
+                <label>User Input:</label>
+                <div class="flex gap-2 items-stretch">
+                    <InputTextArea @bind-Value="@_userInteraction.UserInput" class="flex-1 p-4 border rounded" />
+                    <button type="button"
+                            class="w-16 flex items-center justify-center bg-violet-600 text-white rounded hover:bg-violet-700 disabled:opacity-50"
+                            disabled="@isGenerating"
+                            @onclick="GenerateAsync"
+                            title="Generate SQL">
+                        @if (isGenerating)
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                        }
+                        else
+                        {
+                            <span class="text-2xl leading-none font-bold">&#x2936;</span>
+                        }
+                    </button>
+                </div>
+
+                <label class="mt-2 block">SQL:</label>
+                <div class="flex gap-2 items-stretch">
+                    <InputTextArea @bind-Value="@_userInteraction.SqlQuery" class="flex-1 p-4 border rounded" />
+                    <button type="button"
+                            class="w-16 flex items-center justify-center bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                            disabled="@isRunningSql"
+                            @onclick="RunSqlAsync"
+                            title="Run SQL">
+                        @if (isRunningSql)
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                        }
+                        else
+                        {
+                            <span class="text-2xl leading-none font-bold">&#x2936;</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+
+        @if (isRunningSql || isRenderingDataTable)
+        {
+            <div class="mt-4 p-4 border rounded-lg bg-white">
+                <div class="flex items-center gap-2 mb-3 text-sm text-blue-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span>Preparing data table...</span>
+                </div>
+                <div class="overflow-auto max-h-96 border rounded">
+                    <table class="min-w-full text-sm border-collapse">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                @for (var i = 0; i < 5; i++)
+                                {
+                                    <th class="px-3 py-2 text-left font-semibold border-b border-gray-300">
+                                        <div class="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                                    </th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (var row = 0; row < 6; row++)
+                            {
+                                <tr class="odd:bg-white even:bg-gray-50">
+                                    @for (var col = 0; col < 5; col++)
+                                    {
+                                        <td class="px-3 py-2 border-b border-gray-200">
+                                            <div class="h-4 bg-gray-200 rounded animate-pulse @(col % 2 == 0 ? "w-28" : "w-20")"></div>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        else if (resultData is not null)
+        {
+            <div class="mt-4 p-4 border rounded-lg bg-white">
+                @if (!string.IsNullOrWhiteSpace(lastResultUserQuestion))
+                {
+                    <h2 class="text-lg font-semibold text-gray-900 mb-2 leading-snug">@lastResultUserQuestion</h2>
+                    <hr style="margin-bottom: 15px;" />
+                }
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-4">
+                        <h3 class="text-base font-semibold text-gray-700">Result (@resultData.Rows.Count @(resultData.Rows.Count == 1 ? "row" : "rows"))</h3>
+                        <div class="flex border overflow-hidden text-sm">
+                            <button type="button"
+                                    class="@TabButtonClass(ResultTab.Data)"
+                                    @onclick="() => SetActiveTab(ResultTab.Data)">
+                                Data
+                            </button>
+                            <button type="button"
+                                    class="@TabButtonClass(ResultTab.Chart)"
+                                    @onclick="() => SetActiveTab(ResultTab.Chart)">
+                                Chart
+                            </button>
+                        </div>
+                    </div>
+                    <button type="button"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 text-sm"
+                            disabled="@(isExportingExcel || resultData.Rows.Count == 0)"
+                            @onclick="ExportExcelAsync"
+                            title="Download as Excel">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 3a1 1 0 011 1v7.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 11.586V4a1 1 0 011-1z" />
+                            <path d="M4 15a1 1 0 011 1v1h10v-1a1 1 0 112 0v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2a1 1 0 011-1z" />
+                        </svg>
+                        @(isExportingExcel ? "Exporting..." : "Excel")
+                    </button>
+                </div>
+
+                @if (activeTab == ResultTab.Data)
+                {
+                    @if (resultData.Rows.Count == 0)
+                    {
+                        <div class="text-sm text-gray-500 italic">(no rows)</div>
+                    }
+                    else
+                    {
+                        <div class="overflow-auto max-h-96 border rounded">
+                            <table class="min-w-full text-sm border-collapse">
+                                <thead class="bg-gray-100 sticky top-0">
+                                    <tr>
+                                        @foreach (DataColumn col in resultData.Columns)
+                                        {
+                                            <th class="px-3 py-2 text-left font-semibold border-b border-gray-300">@col.ColumnName</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (DataRow row in resultData.Rows)
+                                    {
+                                        <tr class="odd:bg-white even:bg-gray-100 hover:bg-blue-50">
+                                            @foreach (DataColumn col in resultData.Columns)
+                                            {
+                                                <td class="px-3 py-1.5 border-b border-gray-200 align-top">@FormatCell(row[col])</td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="border rounded p-3 min-h-[420px]">
+                        @if (isGeneratingChart)
+                        {
+                            <div class="text-sm text-gray-600">Generating chart...</div>
+                        }
+                        else if (!string.IsNullOrEmpty(chartError))
+                        {
+                            <div class="text-sm text-red-600">@chartError</div>
+                        }
+                        else if (string.IsNullOrEmpty(chartVegaSpec))
+                        {
+                            <div class="text-sm text-gray-500 italic">No chart available.</div>
+                        }
+                        else
+                        {
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="text-sm text-gray-600">
+                                    Chart type: <span class="font-medium">@chartType</span>
+                                </div>
+                            </div>
+                            <div id="@ChartElementId" class="w-full"></div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+    </div>
+
+    <aside class="w-[15vw] shrink-0 sticky top-4 self-start">
+        <div class="p-4 border rounded-lg bg-white flex flex-col h-[480px]">
+            <h2 class="text-lg mb-2 shrink-0 border-b border-gray-200 pb-2">Conversation History</h2>
+            <div class="space-y-2 overflow-y-auto flex-1 min-h-0 pt-2">
+                @foreach (var message in messages)
+                {
+                    <div class="p-2 bg-gray-100 rounded text-sm break-words">
+                        @message
+                    </div>
+                }
+            </div>
+        </div>
+    </aside>
+</div>
+
+@code {
+    readonly UserInteraction _userInteraction = new();
+    RealtimeConversationManager<UserInteraction>? realtimeConversationManager;
+    EditContext? editContext;
+    Task<IJSObjectReference>? moduleTask;
+    IJSObjectReference? mic;
+    DotNetObjectReference<Home>? selfReference;
+    Pipe micPipe = new();
+    Speaker? speaker;
+    CancellationTokenSource disposalCts = new();
+    List<string> messages = new();
+    DataTable? resultData;
+    string? lastResultUserQuestion;
+    SemaphoreSlim writeAudioSemaphore = new(1);
+    MicControl.MicStatus micStatus = MicControl.MicStatus.Disconnected;
+    bool isGenerating;
+    bool isRunningSql;
+    bool isExportingExcel;
+    bool isGeneratingChart;
+    bool isRenderingDataTable;
+    ResultTab activeTab = ResultTab.Data;
+    string? chartVegaSpec;
+    string? chartType;
+    string? chartError;
+    bool chartNeedsRender;
+    const string ChartElementId = "vega-chart-container";
+
+    enum ResultTab { Data, Chart }
+
+    protected override void OnInitialized()
+    {
+        editContext = new EditContext(_userInteraction);
+        selfReference = DotNetObjectReference.Create(this);
+        var cacheBuster = typeof(Home).Assembly.ManifestModule.ModuleVersionId.ToString("N");
+        moduleTask = JS.InvokeAsync<IJSObjectReference>("import", $"./Components/Pages/Home.razor.js?v={cacheBuster}").AsTask();
+    }
+
+    [JSInvokable]
+    public async Task OnMicConnectedAsync()
+    {
+        if (realtimeConversationManager is null)
+        {
+            try
+            {
+                var dbSchema = await DbSchema.GetSchemaAsync();
+                realtimeConversationManager = new(dbSchema,
+                    RealtimeClient,
+                    micPipe.Reader.AsStream(),
+                    speaker!,
+                    UpdateModel,
+                    AddMessage,
+                    RetryService,
+                    OnVoiceQueryStartedAsync,
+                    OnVoiceQueryCompletedAsync,
+                    OnVoiceQueryResultAsync);
+                await realtimeConversationManager.RunAsync(disposalCts.Token);
+            }
+            catch (Exception ex)
+            {
+                await DispatchExceptionAsync(ex);
+            }
+        }
+    }
+
+    private void UpdateModel(UserInteraction newUserInteraction)
+    {
+        // This method is called by the conversation manager from outside the Blazor event mechanism,
+        // so we need to InvokeAsync onto the sync context, and manually call StateHasChanged
+        InvokeAsync(() =>
+        {
+            if (UpdateModelProperties(_userInteraction, newUserInteraction))
+            {
+                StateHasChanged();
+            }
+        });
+    }
+
+    private void AddMessage(string message)
+    {
+        if (!string.IsNullOrEmpty(message))
+        {
+            var timestamped = $"[{DateTime.Now:HH:mm:ss}] {message}";
+            InvokeAsync(() =>
+            {
+                messages.Insert(0, timestamped);
+                StateHasChanged();
+            });
+        }
+    }
+
+    private async Task OnVoiceQueryStartedAsync()
+    {
+        isRunningSql = true;
+        isRenderingDataTable = false;
+        resultData = null;
+        chartVegaSpec = null;
+        chartType = null;
+        chartError = null;
+        activeTab = ResultTab.Data;
+        AddMessage("Running SQL...");
+        await InvokeAsync(StateHasChanged);
+        await Task.Yield();
+    }
+
+    private Task OnVoiceQueryCompletedAsync() => InvokeAsync(() =>
+    {
+        isRunningSql = false;
+        StateHasChanged();
+    });
+
+    private Task OnVoiceQueryResultAsync(DataTable dt) => InvokeAsync(() =>
+    {
+        isRenderingDataTable = true;
+        lastResultUserQuestion = string.IsNullOrWhiteSpace(_userInteraction.UserInput)
+            ? null
+            : _userInteraction.UserInput.Trim();
+        resultData = dt;
+        chartVegaSpec = null;
+        chartType = null;
+        chartError = null;
+        activeTab = ResultTab.Data;
+        StateHasChanged();
+    });
+
+    [JSInvokable]
+    public Task ReceiveAudioDataAsync(byte[] data) => InvokeAsync(async () =>
+    {
+        if (await writeAudioSemaphore.WaitAsync(0))
+        {
+            try
+            {
+                await micPipe.Writer.WriteAsync(data);
+            }
+            finally
+            {
+                writeAudioSemaphore.Release();
+            }
+        }
+    });
+
+    public async ValueTask DisposeAsync()
+    {
+        disposalCts.Dispose();
+        selfReference?.Dispose();
+        realtimeConversationManager?.Dispose();
+
+        try
+        {
+            var module = await moduleTask!;
+            await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // Not an error
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        realtimeConversationManager?.SetModelData(_userInteraction);
+
+        if (chartNeedsRender && activeTab == ResultTab.Chart && !string.IsNullOrEmpty(chartVegaSpec))
+        {
+            chartNeedsRender = false;
+            try
+            {
+                var module = await moduleTask!;
+                await module.InvokeVoidAsync("renderChart", ChartElementId, chartVegaSpec);
+            }
+            catch (Exception ex)
+            {
+                chartError = $"Chart render error: {ex.Message}";
+                StateHasChanged();
+            }
+        }
+
+        if (isRenderingDataTable)
+        {
+            isRenderingDataTable = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetActiveTab(ResultTab tab)
+    {
+        if (activeTab == tab)
+        {
+            return;
+        }
+
+        activeTab = tab;
+
+        if (tab == ResultTab.Chart && resultData is not null)
+        {
+            if (chartVegaSpec is null && !isGeneratingChart)
+            {
+                await GenerateChartAsync();
+            }
+            else if (!string.IsNullOrEmpty(chartVegaSpec))
+            {
+                chartNeedsRender = true;
+            }
+        }
+    }
+
+    private async Task GenerateChartAsync()
+    {
+        if (resultData is null || resultData.Rows.Count == 0)
+        {
+            chartError = "No data to visualize.";
+            return;
+        }
+
+        isGeneratingChart = true;
+        chartError = null;
+        StateHasChanged();
+        try
+        {
+            var result = await ChartService.GenerateChartFromDataTable(
+                resultData,
+                _userInteraction.UserInput);
+
+            if (result.Success)
+            {
+                chartVegaSpec = result.VegaSpec;
+                chartType = result.ChartType;
+                chartNeedsRender = true;
+            }
+            else
+            {
+                chartError = result.ErrorMessage ?? "Failed to generate chart.";
+            }
+        }
+        catch (Exception ex)
+        {
+            chartError = ex.Message;
+        }
+        finally
+        {
+            isGeneratingChart = false;
+            StateHasChanged();
+        }
+    }
+
+    private string TabButtonClass(ResultTab tab)
+    {
+        var baseClass = "px-3 py-1 text-sm transition-colors";
+        return activeTab == tab
+            ? $"{baseClass} bg-blue-600 text-white"
+            : $"{baseClass} bg-white text-gray-700 hover:bg-gray-100";
+    }
+
+    private bool UpdateModelProperties(object oldModel, object newModel)
+    {
+        var foundChange = false;
+        foreach (var prop in oldModel.GetType().GetProperties())
+        {
+            var oldValue = prop.GetValue(oldModel);
+            var newValue = prop.GetValue(newModel);
+            if (prop.PropertyType.GetCustomAttributes<ValidateComplexTypeAttribute>().Any())
+            {
+                foundChange |= UpdateModelProperties(oldValue!, newValue!);
+            }
+            else if (oldValue != newValue)
+            {
+                prop.SetValue(oldModel, newValue);
+                editContext!.NotifyFieldChanged(new FieldIdentifier(oldModel, prop.Name));
+                foundChange = true;
+            }
+        }
+
+        return foundChange;
+    }
+
+    private async Task GenerateAsync()
+    {
+        if (isGenerating || string.IsNullOrWhiteSpace(_userInteraction.UserInput))
+        {
+            return;
+        }
+
+        isGenerating = true;
+        try
+        {
+            AddMessage("Generating SQL...");
+            var sql = await AiService.GenerateSqlAsync(_userInteraction.UserInput);
+            _userInteraction.SqlQuery = sql;
+            editContext!.NotifyFieldChanged(FieldIdentifier.Create(() => _userInteraction.SqlQuery));
+            AddMessage("SQL Generation Finished.");
+            // Manual flow should mirror voice flow: generate SQL and immediately show query results.
+            await RunSqlAsync();
+        }
+        catch (Exception ex)
+        {
+            AddMessage($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private async Task RunSqlAsync()
+    {
+        if (isRunningSql || string.IsNullOrWhiteSpace(_userInteraction.SqlQuery))
+        {
+            return;
+        }
+
+        isRunningSql = true;
+        resultData = null;
+        chartVegaSpec = null;
+        chartType = null;
+        chartError = null;
+        activeTab = ResultTab.Data;
+        // Force placeholder paint before starting SQL execution.
+        await InvokeAsync(StateHasChanged);
+        await Task.Yield();
+        try
+        {
+            await RunSqlCoreAsync(_userInteraction.SqlQuery);
+        }
+        catch (Exception ex)
+        {
+            AddMessage($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isRunningSql = false;
+        }
+    }
+
+    private async Task RunSqlCoreAsync(string sql)
+    {
+        AddMessage("Running SQL...");
+        var userQuery = _userInteraction.UserInput;
+        var dbResult = await DbService.RunSqlQuery(userQuery, sql, disposalCts.Token);
+
+        if (dbResult.Fails)
+        {
+            AddMessage($"SQL error: {dbResult.ErrorMessage}");
+            dbResult = await RetryService.TryToFindWorkingSqlAsync(dbResult, maxRetry: 5, disposalCts.Token, AddMessage);
+            if (dbResult.Success)
+            {
+                _userInteraction.SqlQuery = dbResult.Sql;
+                editContext!.NotifyFieldChanged(FieldIdentifier.Create(() => _userInteraction.SqlQuery));
+                AddMessage("Corrected SQL executed successfully.");
+            }
+        }
+
+        if (dbResult.Fails)
+        {
+            AddMessage($"Error running SQL: {dbResult.ErrorMessage}");
+            resultData = null;
+            lastResultUserQuestion = null;
+            return;
+        }
+
+        lastResultUserQuestion = string.IsNullOrWhiteSpace(userQuery) ? null : userQuery.Trim();
+        isRenderingDataTable = true;
+        AddMessage("Data table render started.");
+        resultData = dbResult.Data!;
+        AddMessage("Running SQL Finished.");
+        StateHasChanged();
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        if (isExportingExcel || resultData is null || resultData.Rows.Count == 0)
+        {
+            return;
+        }
+
+        isExportingExcel = true;
+        try
+        {
+            var bytes = ExcelService.GenerateExcelBytes(resultData);
+            var fileName = $"result-{DateTime.Now:yyyyMMdd-HHmmss}.xlsx";
+            var module = await moduleTask!;
+            await module.InvokeVoidAsync(
+                "downloadFile",
+                fileName,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                bytes);
+        }
+        catch (Exception ex)
+        {
+            AddMessage($"Excel export error: {ex.Message}");
+        }
+        finally
+        {
+            isExportingExcel = false;
+        }
+    }
+
+    private static string FormatCell(object? value)
+    {
+        if (value is null || value == DBNull.Value)
+        {
+            return string.Empty;
+        }
+
+        return value switch
+        {
+            DateTime dt => dt.ToString("yyyy-MM-dd HH:mm:ss"),
+            decimal d => d.ToString("0.##"),
+            double d => d.ToString("0.##"),
+            float f => f.ToString("0.##"),
+            _ => value.ToString() ?? string.Empty
+        };
+    }
+
+    private async Task ChangeMicStatusAsync()
+    {
+        var module = await moduleTask!;
+        switch (micStatus)
+        {
+            case MicControl.MicStatus.Disconnected:
+                micStatus = MicControl.MicStatus.Active;
+                mic = await module.InvokeAsync<IJSObjectReference>("start", selfReference);
+                break;
+            case MicControl.MicStatus.Active:
+                micStatus = MicControl.MicStatus.Muted;
+                await module.InvokeVoidAsync("setMute", mic, true);
+                break;
+            case MicControl.MicStatus.Muted:
+                micStatus = MicControl.MicStatus.Active;
+                await module.InvokeVoidAsync("setMute", mic, false);
+                break;
+        }
+    }
+}

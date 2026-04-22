@@ -1,0 +1,26 @@
+﻿@inject IJSRuntime JS
+@using Microsoft.JSInterop
+
+<div @ref="@elementRef" @attributes="@AdditionalAttributes" contenteditable="plaintext-only" @bind-content:get="@Value" @bind-content:set="@(val => ValueChanged.InvokeAsync(val))"></div>
+
+@code {
+    ElementReference elementRef;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> ValueChanged { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "./Elements/ContentEditable.razor.js");
+            await module.InvokeVoidAsync("start", elementRef);
+        }
+    }
+}
