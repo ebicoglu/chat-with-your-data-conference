@@ -1,9 +1,9 @@
 
 # About The Database
-This is a sample SQLite database, downloaded at [sqlitetutorial.net/sqlite-sample-database/](https://www.sqlitetutorial.net/sqlite-sample-database/). 
+This is a sample SQLite database called `chinook.db`, downloaded at [sqlitetutorial.net/sqlite-sample-database/](https://www.sqlitetutorial.net/sqlite-sample-database/). 
 To keep the project simple and understandable, this database is used.
 
-![sqlite-sample-database-schema](D:\github\alper\chat-with-your-data\sqlite-sample-database-schema.png)
+![sqlite-sample-database-schema](sqlite-sample-database-schema.png)
 
 ## DB Schema
 The `Chinook` sample database contains following tables:
@@ -62,8 +62,14 @@ The `Chinook` sample database contains following tables:
 
 ---
 
-## How can I open this database?
+## How to get my database's schema?
 
-Download the free tool below to explore the data in this database
+In the demo project, I'm using ADO.NET's `GetSchemaAsync()` method. But for one-time usage, you can use [DBeaver](https://dbeaver.io/) application. It's a universal database management studio. 
+
+![how-to-get-your-db-schema](how-to-get-your-db-schema.png)
+
+## How can I open the database?
+
+To explore the data inside the sample `chinook.db` database, you can download the free tool below tool. It's a simple & free app for browsing an SQLite database.
 
 * [sqlitebrowser.org](https://sqlitebrowser.org/)
