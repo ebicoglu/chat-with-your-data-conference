@@ -6,7 +6,7 @@ There are 2 projects in this repo.
 
 * **Chat.Console**: This is the core and actual project. To strip the UI and other non-related stuff I created a simple console app, so that you can focus the real solution. So if you want to understand the pipeline check this one.
 
-* **Talk.Web**: When people see event an amazing idea working in a simple console app, it's not giving the wow effect. That's why I want to show this idea in a web application. But still I kept this project simple and understandable. When you implement in your app you can do better I guess. 
+* **Talk.Web**: When people see event an amazing idea working in a simple console app, it's not giving the wow effect. That's why I want to show this idea in a web application. But still I kept this project simple and understandable. When you implement in your app you can do better I guess. For more technical info check out [Talk.Web ReadMe](/Talk.Web/README.md). 
 
   
 

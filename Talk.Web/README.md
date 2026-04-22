@@ -1,6 +1,6 @@
 # Talk.Web - Talk to Your Data
 
-This is a .NET 9 Blazor Server app that lets you ask questions about data in natural language, generate SQL, run it on SQLite, and view the result as a table or chart.
+This is a .NET 10 Blazor Server app that lets you ask questions about data in natural language, generate SQL, run it on SQLite, and view the result as a table or chart.
 
 ## What It Does
 
@@ -40,5 +40,5 @@ This is a .NET 9 Blazor Server app that lets you ask questions about data in nat
 
 ## Notes
 
-- Target framework: `.NET 9`.
+- Target framework: `.NET 10`.
 - Database file is included in the project and copied to output on build.
