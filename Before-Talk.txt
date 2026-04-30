@@ -11,14 +11,16 @@ What is the monthly revenue trend in 2011?
 Which are the top 10 genres by total revenue?
 What is the percentage share of total sales by country (Top 8 countries + Other)?
 Is there a relationship between number of items per invoice and invoice total amount
-
+---
 *** INVALID SQL on purpose to test retry mechanism ***
 How does cumulative revenue growth change over time by month?
 
 
-
+--------------------------------
 
 D:\github\alper\chat-with-your-data-conference\Chat.Console\bin\Debug\net10.0\Output
 sqlite-sample-database-schema.png
 DB Browser
 ZoomIt.exe
+Chat.Console.sln
+Talk.Web.sln
