@@ -25,30 +25,30 @@ How does cumulative revenue growth change over time by month?
 
 try
 {
-    /* 0 - GET USER INPUT */
-    ConsoleHelper.WriteInfo("0.) ASK SOMETHING ABOUT YOUR DATA...");
+    /* 1 - GET USER INPUT */
+    ConsoleHelper.WriteInfo("1.) ASK SOMETHING ABOUT YOUR DATA...");
     string userInput = Console.ReadLine();
 
 
-    /* 1 - GET THE DATABASE SCHEMA */
-    ConsoleHelper.WriteInfo("1.) FETCHING DATABASE SCHEMA...");
+    /* 2 - GET THE DATABASE SCHEMA */
+    ConsoleHelper.WriteInfo("2.) FETCHING DATABASE SCHEMA...");
     string dbSchema = await DbSchemaService.GetSchema(connectionString);
     Console.WriteLine("● Schema created → " + DbSchemaService.SchemaFilePath);
 
 
-    /* 2 - ASK AI FOR a VALID SQL QUERY */
-    ConsoleHelper.WriteInfo("2.) GENERATING SQL with AI...");
+    /* 3 - ASK AI FOR a VALID SQL QUERY */
+    ConsoleHelper.WriteInfo("3.) GENERATING SQL with AI...");
     string sql = await AiService.GenerateSqlQuery(userInput, dbSchema, connectionString);
     sql = Helpers.ExtractSqlQuery(sql);
     Console.WriteLine(sql);
 
 
-    /* 3 - RUN THE QUERY */
-    ConsoleHelper.WriteInfo("3.) EXECUTING THE SQL QUERY...");
+    /* 4 - RUN THE QUERY */
+    ConsoleHelper.WriteInfo("4.) EXECUTING THE SQL QUERY...");
     DbResult dbResult = await DbService.RunSqlQuery(userInput, sql, connectionString);
     if (dbResult.Fails)
     {
-        /* 3.1 - QUERY IS NOT VALID. ASK AI AGAIN UNTIL WE FIND A WORKING ONE */
+        /* 4.1 - QUERY IS NOT VALID. ASK AI AGAIN UNTIL WE FIND A WORKING ONE */
         dbResult = await RetryService.TryToFindWorkingSql(dbResult, maxRetry: 5, connectionString);
         if (dbResult.Fails)
         {
@@ -61,13 +61,13 @@ try
 
     ConsoleHelper.Print(dbResult.DataTable);
 
-    /*4 - EXPORT EXCEL */
-    ConsoleHelper.WriteInfo("4.) GENERATING EXCEL REPORT...");
+    /* 5 - EXPORT EXCEL */
+    ConsoleHelper.WriteInfo("5.) GENERATING EXCEL REPORT...");
     var excelPath = ExcelService.GenerateExcel(dbResult.DataTable);
     Console.WriteLine("● Excel created → " + excelPath);
 
-    /*5 - GENERATE CHART */
-    ConsoleHelper.WriteInfo("5.) GENERATING THE CHART...");
+    /* 6 - GENERATE CHART */
+    ConsoleHelper.WriteInfo("6.) GENERATING THE CHART...");
     var chartResult = await ChartGenerationService.GenerateChartFromDataTable(dbResult.DataTable, userInput);
     if (chartResult.Success)
     {
@@ -75,8 +75,8 @@ try
         Console.WriteLine("● Chart created → " + chartPath);
     }
 
-    /*7 - RECOMMEND NEW QUESTION IDEAS*/
-    ConsoleHelper.WriteInfo("6.) RECOMMENDING NEW QUESTIONS...");
+    /* 7 - RECOMMEND NEW QUESTION IDEAS*/
+    ConsoleHelper.WriteInfo("7.) RECOMMENDING NEW QUESTIONS...");
     await QuestionRecommendService.Recommend(dbSchema, userInput);
 
 
