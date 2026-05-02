@@ -2,7 +2,7 @@ QUESTIONS:
 
 Top 5 artists by album releases?
 how many songs are there in each genre?
-write down the top 3 best-selling songs?
+write the top 3 best-selling songs?
 which music track is related to festival?
 which countries generate the most sales, list only top 5?
 how many invoices were created per month in 2009? Show in YYYY-MM format.
