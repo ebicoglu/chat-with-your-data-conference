@@ -2,10 +2,18 @@ QUESTIONS:
 
 Top 5 artists by album releases?
 how many songs are there in each genre?
-write the top 3 best-selling songs?
+write the top 3 best-selling songs.
 which music track is related to festival?
 which countries generate the most sales, list only top 5?
 how many invoices were created per month in 2009? Show in YYYY-MM format.
+
+Albüm çıkışlarına göre en iyi 5 sanatçı?
+Tür bazında kaç şarkı var?
+En çok satan 3 şarkıyı yaz
+Hangi şarkı festival ile ilgili?
+En çok satış yapılan ülkeler hangileri? Sadece ilk 5’i yaz.
+2009 yılında aylık olarak kaç fatura düzenlendi? YYYY-MM formatında gösterin.
+
 ---
 What is the monthly revenue trend in 2011?
 Which are the top 10 genres by total revenue?
