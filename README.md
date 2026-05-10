@@ -1,4 +1,9 @@
-# About 
+# About Me
+I'm a software architect and co-founder of [Volosoft](http://volosoft.com/). I've been programming since 1997. Based on my practical experience, I give presentations at various global conferences. You can follow me on Twitter 👉 [x.com/alperebicoglu](https://x.com/alperebicoglu). 
+
+
+
+# About Project
 
 This repo is a demonstration of how humans can chat with their data using AI. To prove it works, there are 2 applications. Both are .NET demo projects that answers natural-language questions against a **SQLite** database. They read the live schema, asks an **OpenAI** model to produce SQL, runs the query (with retries if SQL fails), then optionally builds an **Excel** export, a chart as HTML, and suggests follow-up questions. Both projects use `chinook.db`. You can find more info about this database in the [Database section](#Database). Both projects use OpenAI's `gpt-5.4` model. And for the chart creation, they both use [Vega charts](https://github.com/vega/vega). For excel export they use [ClosedXML](https://www.nuget.org/packages/closedxml/). All these components are replacable, I just picked them because they're easy to use and show.
 
@@ -8,7 +13,7 @@ There are 2 projects in this repo.
 
 * **Talk.Web**: When people see event an amazing idea working in a simple console app, it's not giving the wow effect. That's why I want to show this idea in a web application. But still I kept this project simple and understandable. When you implement in your app you can do better I guess. For more technical info check out [Talk.Web ReadMe](/Talk.Web/README.md). 
 
-  
+ 
 
   >  AI is not deterministic so, it might change the generated SQL query even you use the same input. So when your query works good, implement a save/load query section in your project. Users can save a query after it successfully runs. They can share the queries among the other users, etc...
 
