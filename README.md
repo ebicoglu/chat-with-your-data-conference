@@ -1,5 +1,5 @@
 # About Me
-I'm a software architect and co-founder of [Volosoft](http://volosoft.com/). I've been programming since 1997. Based on my practical experience, I give presentations at various global conferences. You can follow me on Twitter 👉 [x.com/alperebicoglu](https://x.com/alperebicoglu). 
+I'm Alper Ebicoglu, a software architect and co-founder of [Volosoft](http://volosoft.com/). I've been programming since 1997. Based on my practical experience, I give presentations at various global conferences. You can follow me on Twitter 👉 [x.com/alperebicoglu](https://x.com/alperebicoglu). 
 
 
 
