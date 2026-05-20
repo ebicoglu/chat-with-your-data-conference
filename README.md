@@ -1,6 +1,32 @@
 # About Me
-I'm Alper Ebicoglu, a software architect and co-founder of [Volosoft](http://volosoft.com/). I've been programming since 1997. Based on my practical experience, I give presentations at various global conferences. You can follow me on Twitter 👉 [x.com/alperebicoglu](https://x.com/alperebicoglu). 
+I'm Alper Ebicoglu, a software architect and co-founder of [Volosoft](http://volosoft.com/). <br>
+I've been programming since 1997.  <br>
+Based on my practical experience, I give presentations at various global conferences. <br>
+You can follow me on:
 
+<table cellspacing="0" cellpadding="0" style="border: none;">
+  <tr>
+    <td><a href="https://www.linkedin.com/in/ebicoglu/"><img src="https://img.icons8.com/color/32/linkedin.png"/></a></td>
+    <td><a href="https://www.linkedin.com/in/ebicoglu/">linkedin.com/in/ebicoglu</a></td>
+  </tr>
+  <tr>
+    <td><a href="https://x.com/alperebicoglu"><img src="https://img.icons8.com/color/32/twitterx.png"/></a></td>
+    <td><a href="https://x.com/alperebicoglu">x.com/alperebicoglu</a></td>
+  </tr>
+  <tr>
+    <td><a href="https://alperonline.medium.com/"><img src="https://img.icons8.com/color/32/medium.png"/></a></td>
+    <td><a href="https://alperonline.medium.com/">alperonline.medium.com</a></td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/ebicoglu"><img src="https://img.icons8.com/color/32/github.png"/></a></td>
+    <td><a href="https://github.com/ebicoglu">github.com/ebicoglu</a></td>
+  </tr>
+  <tr>
+    <td><a href="https://abp.io/community/members/alper"><img src="https://abp.io/assets/favicon.ico/32x32/light-favicon.png"/></a></td>
+    <td><a href="https://abp.io/community/members/alper">abp.io/community/members/alper</a></td>
+  </tr>
+  
+</table>
 
 
 # About Project
