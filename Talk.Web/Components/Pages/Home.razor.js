@@ -1,6 +1,6 @@
 ﻿export async function start(componentInstance) {
     try {
-        const micStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: { sampleRate: 16000 } });
+        const micStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true } });
         processMicrophoneData(micStream, componentInstance);
         return micStream;
     } catch (ex) {

@@ -1,5 +1,6 @@
 QUESTIONS:
 
+ENGLISH:
 write the top 3 best-selling songs.
 which music track is related to festival?
 how many invoices were created per month in 2009? Show in YYYY-MM format.
@@ -7,17 +8,17 @@ which countries generate the most sales, list only top 5?
 top 5 artists by album releases?
 
 ---
-
+LITHUANIAN:
 parodik bendras paayamas pagalmetus (Show total income by year)
 parodik visus klientus (Show all customers)
-Parodyk pardavimus pagal metus (Show sales by year)
-
+Parodik pardavimus pagal metus (Show sales by year)
+Parodik pehn-ki geria-sus klientus (Show top 5 customers)
 
 ---
-
-Albüm çıkışlarına göre en iyi 5 sanatçı?
+TURKISH:
 Tür bazında kaç şarkı var?
 En çok satan 3 şarkıyı yaz
+Albüm çıkışlarına göre en iyi 5 sanatçı?
 
 ---
 *** INVALID SQL on purpose to test retry mechanism ***

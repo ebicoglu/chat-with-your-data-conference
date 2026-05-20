@@ -130,22 +130,27 @@ public class RealtimeConversationManager<TModel> : IDisposable
         var sessionOptions = new RealtimeConversationSessionOptions
         {
             Instructions =
-                "The user's speech is transcribed for you. Always use the same language as the user's last utterance for everything you say aloud and write: " +
-                "responses, summaries of query results, and follow-up questions. Do not switch to another language unless the user does. " +
-                "For each completed user utterance about the data: " +
-                "(1) Set transcribedUserQuestion to the user's intent in clear natural language, in that same language. " +
-                "(2) Produce exactly one SQLite-compatible SELECT query using only tables/columns from the schema you received. " +
-                "(3) You MUST call ExecuteSpokenQueryAsync once with those two arguments. That tool saves the text, runs the query, and returns row data. " +
-                "After the tool returns, summarize the results for the user in their language only. " +
-                "Never skip the tool call for data questions; do not end the turn with only assistant text when the user asked for data.",
+                "You help users query a SQLite database by voice. " +
+                "Detect the language of each user utterance and reply only in that same language (spoken and written), including summaries of query results. " +
+                "Do not switch languages unless the user does. " +
+                "When the user asks for data (counts, lists, sales, totals, charts), call ExecuteSpokenQueryAsync immediately—do not ask clarifying questions in another language. " +
+                "For each data question: " +
+                "(1) transcribedUserQuestion = user intent in the language they used; " +
+                "(2) one SQLite SELECT using only schema tables/columns; " +
+                "(3) call ExecuteSpokenQueryAsync with those two strings; " +
+                "(4) summarize tool results in the user's language.",
             AudioOptions = new RealtimeConversationSessionAudioOptions
             {
                 InputAudioOptions = new RealtimeConversationSessionInputAudioOptions
                 {
-                    TurnDetection = new RealtimeServerVadTurnDetection
+                    AudioTranscriptionOptions = new RealtimeAudioTranscriptionOptions
                     {
-                        DetectionThreshold = 0.4f,
-                        SilenceDuration = TimeSpan.FromMilliseconds(150),
+                        Model = "gpt-4o-transcribe",
+                    },
+                    TurnDetection = new RealtimeSemanticVadTurnDetection
+                    {
+                        EagernessLevel = RealtimeSemanticVadEagernessLevel.Low,
+                        InterruptResponseEnabled = false,
                     },
                 },
                 OutputAudioOptions = new RealtimeConversationSessionOutputAudioOptions
@@ -190,6 +195,13 @@ public class RealtimeConversationManager<TModel> : IDisposable
 
                         case RealtimeServerUpdateInputAudioBufferSpeechStopped:
                             addMessage("Speech finished");
+                            break;
+
+                        case RealtimeServerUpdateConversationItemInputAudioTranscriptionCompleted transcriptionDone:
+                            if (!string.IsNullOrWhiteSpace(transcriptionDone.Transcript))
+                            {
+                                addMessage($"Heard: {transcriptionDone.Transcript}");
+                            }
                             break;
 
                         case RealtimeServerUpdateResponseOutputAudioDelta audioDelta:

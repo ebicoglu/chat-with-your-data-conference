@@ -243,7 +243,6 @@
     List<string> messages = new();
     DataTable? resultData;
     string? lastResultUserQuestion;
-    SemaphoreSlim writeAudioSemaphore = new(1);
     MicControl.MicStatus micStatus = MicControl.MicStatus.Disconnected;
     bool isGenerating;
     bool isRunningSql;
@@ -398,20 +397,15 @@
     });
 
     [JSInvokable]
-    public Task ReceiveAudioDataAsync(byte[] data) => InvokeAsync(async () =>
+    public Task ReceiveAudioDataAsync(byte[] data)
     {
-        if (await writeAudioSemaphore.WaitAsync(0))
+        if (data.Length == 0)
         {
-            try
-            {
-                await micPipe.Writer.WriteAsync(data);
-            }
-            finally
-            {
-                writeAudioSemaphore.Release();
-            }
+            return Task.CompletedTask;
         }
-    });
+
+        return InvokeAsync(() => micPipe.Writer.WriteAsync(data).AsTask());
+    }
 
     public async ValueTask DisposeAsync()
     {

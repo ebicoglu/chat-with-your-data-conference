@@ -9,7 +9,7 @@
             const bufferSource = toAudioBufferSource(audioCtx, data);
             pendingSources.push(bufferSource);
             bufferSource.onended = () => pendingSources.splice(pendingSources.indexOf(bufferSource), 1);
-            currentPlaybackEndTime = Math.max(currentPlaybackEndTime, audioCtx.currentTime + 0.5);
+            currentPlaybackEndTime = Math.max(currentPlaybackEndTime, audioCtx.currentTime);
             bufferSource.start(currentPlaybackEndTime);
             currentPlaybackEndTime += bufferSource.buffer.duration;
         },
