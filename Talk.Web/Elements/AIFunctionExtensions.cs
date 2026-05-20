@@ -1,57 +1,55 @@
 ﻿using System.Text.Json;
 using Microsoft.Extensions.AI;
-using OpenAI.RealtimeConversation;
+using OpenAI.Realtime;
 
 namespace Talk.Web.Elements;
 
 public static class AIFunctionExtensions
 {
     /// <summary>
-    /// Converts a <see cref="AIFunction"/> into a <see cref="ConversationFunctionTool"/> so that
-    /// it can be used with <see cref="RealtimeConversationClient"/>.
+    /// Converts a <see cref="AIFunction"/> into a <see cref="RealtimeFunctionTool"/> for the GA Realtime API.
     /// </summary>
-    public static ConversationFunctionTool ToConversationFunctionTool(this AIFunction aiFunction)
+    public static RealtimeFunctionTool ToRealtimeFunctionTool(this AIFunction aiFunction)
     {
-        return new ConversationFunctionTool()
+        var schema = aiFunction.JsonSchema;
+        var parametersJson = schema.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null
+            ? """{"type":"object","properties":{}}"""
+            : schema.GetRawText();
+
+        return new RealtimeFunctionTool(aiFunction.Name)
         {
-            Name = aiFunction.Metadata.Name,
-            Description = aiFunction.Metadata.Description,
-            Parameters = BinaryData.FromString(
-                $$"""
-                {
-                    "type": "object",
-                    "properties": {
-                        {{string.Join(',', aiFunction.Metadata.Parameters.Select(p => $$"""
-                            "{{p.Name}}": {{p.Schema}}
-                        """))}}
-                    },
-                    "required": {{JsonSerializer.Serialize(aiFunction.Metadata.Parameters.Where(p => p.IsRequired).Select(p => p.Name))}}
-                }
-                """)
+            FunctionDescription = aiFunction.Description,
+            FunctionParameters = BinaryData.FromString(parametersJson),
         };
     }
 
-    public static async Task<ConversationItem?> GetFunctionCallOutputAsync(this ConversationItemStreamingFinishedUpdate update, IReadOnlyList<AIFunction> tools)
+    public static async Task<string?> InvokeToolAsync(this RealtimeFunctionCallItem functionCall, IReadOnlyList<AIFunction> tools)
     {
-        if (!string.IsNullOrEmpty(update.FunctionName) && tools.FirstOrDefault(t => t.Metadata.Name == update.FunctionName) is AIFunction aiFunction)
+        if (string.IsNullOrEmpty(functionCall.FunctionName))
         {
-            Dictionary<string, object?>? jsonArgs = null;
-            try
-            {
-                jsonArgs = JsonSerializer.Deserialize<Dictionary<string, object?>>(update.FunctionCallArguments)!;
-                var output = await aiFunction.InvokeAsync(jsonArgs);
-                return ConversationItem.CreateFunctionCallOutput(update.FunctionCallId, output?.ToString() ?? "");
-            }
-            catch (JsonException)
-            {
-                return ConversationItem.CreateFunctionCallOutput(update.FunctionCallId, "Invalid JSON");
-            }
-            catch
-            {
-                return ConversationItem.CreateFunctionCallOutput(update.FunctionCallId, "Error calling tool");
-            }
+            return null;
         }
 
-        return null;
+        var aiFunction = tools.FirstOrDefault(t => t.Name == functionCall.FunctionName);
+        if (aiFunction is null)
+        {
+            return $"Unknown tool: {functionCall.FunctionName}";
+        }
+
+        try
+        {
+            var argsJson = functionCall.FunctionArguments.ToString();
+            var jsonArgs = JsonSerializer.Deserialize<Dictionary<string, object?>>(argsJson)!;
+            var output = await aiFunction.InvokeAsync(new AIFunctionArguments(jsonArgs!));
+            return output?.ToString() ?? "";
+        }
+        catch (JsonException)
+        {
+            return "Invalid JSON";
+        }
+        catch (Exception ex)
+        {
+            return $"Error calling tool: {ex.Message}";
+        }
     }
 }

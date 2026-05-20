@@ -1,5 +1,5 @@
 ﻿@page "/"
-@using OpenAI.RealtimeConversation
+@using OpenAI.Realtime
 @using System.Data
 @using System.IO.Pipelines
 @using System.ComponentModel.DataAnnotations
@@ -9,7 +9,7 @@
 @using Talk.Web.Services.ChartService
 @implements IAsyncDisposable
 @inject IJSRuntime JS
-@inject RealtimeConversationClient RealtimeClient
+@inject RealtimeClient RealtimeClient
 @inject AiService AiService
 @inject RetryService RetryService
 @inject ChartGenerationService ChartService
@@ -238,6 +238,8 @@
     Pipe micPipe = new();
     Speaker? speaker;
     CancellationTokenSource disposalCts = new();
+    CancellationTokenSource? realtimeSessionCts;
+    Task? realtimeRunTask;
     List<string> messages = new();
     DataTable? resultData;
     string? lastResultUserQuestion;
@@ -268,28 +270,71 @@
     [JSInvokable]
     public async Task OnMicConnectedAsync()
     {
-        if (realtimeConversationManager is null)
+        if (realtimeConversationManager is not null)
+        {
+            return;
+        }
+
+        realtimeSessionCts = CancellationTokenSource.CreateLinkedTokenSource(disposalCts.Token);
+        try
+        {
+            var dbSchema = await DbSchema.GetSchemaAsync();
+            realtimeConversationManager = new(dbSchema,
+                RealtimeClient,
+                micPipe.Reader.AsStream(),
+                speaker!,
+                UpdateModel,
+                AddMessage,
+                RetryService,
+                OnVoiceQueryStartedAsync,
+                OnVoiceQueryCompletedAsync,
+                OnVoiceQueryResultAsync);
+            realtimeRunTask = realtimeConversationManager.RunAsync(realtimeSessionCts.Token);
+            await realtimeRunTask;
+        }
+        catch (OperationCanceledException) when (realtimeSessionCts.IsCancellationRequested)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            AddMessage($"Voice session error: {ex.Message}");
+        }
+        finally
+        {
+            await StopRealtimeSessionAsync();
+        }
+    }
+
+    async Task StopRealtimeSessionAsync()
+    {
+        if (realtimeSessionCts is not null)
+        {
+            await realtimeSessionCts.CancelAsync();
+        }
+
+        if (realtimeRunTask is not null)
         {
             try
             {
-                var dbSchema = await DbSchema.GetSchemaAsync();
-                realtimeConversationManager = new(dbSchema,
-                    RealtimeClient,
-                    micPipe.Reader.AsStream(),
-                    speaker!,
-                    UpdateModel,
-                    AddMessage,
-                    RetryService,
-                    OnVoiceQueryStartedAsync,
-                    OnVoiceQueryCompletedAsync,
-                    OnVoiceQueryResultAsync);
-                await realtimeConversationManager.RunAsync(disposalCts.Token);
+                await realtimeRunTask;
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                await DispatchExceptionAsync(ex);
+            }
+            catch (ObjectDisposedException)
+            {
             }
         }
+
+        realtimeConversationManager?.Dispose();
+        realtimeConversationManager = null;
+        realtimeRunTask = null;
+
+        realtimeSessionCts?.Dispose();
+        realtimeSessionCts = null;
     }
 
     private void UpdateModel(UserInteraction newUserInteraction)
@@ -370,9 +415,11 @@
 
     public async ValueTask DisposeAsync()
     {
-        disposalCts.Dispose();
+        await StopRealtimeSessionAsync();
+
         selfReference?.Dispose();
-        realtimeConversationManager?.Dispose();
+        await disposalCts.CancelAsync();
+        disposalCts.Dispose();
 
         try
         {
@@ -387,7 +434,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        realtimeConversationManager?.SetModelData(_userInteraction);
+        if (realtimeConversationManager?.IsSessionActive == true)
+        {
+            await realtimeConversationManager.SetModelData(_userInteraction);
+        }
 
         if (chartNeedsRender && activeTab == ResultTab.Chart && !string.IsNullOrEmpty(chartVegaSpec))
         {

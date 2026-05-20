@@ -2,7 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
-using OpenAI.RealtimeConversation;
+using OpenAI.Realtime;
 using Talk.Web.Elements;
 using Talk.Web.Services;
 
@@ -10,8 +10,10 @@ namespace Talk.Web;
 
 public class RealtimeConversationManager<TModel> : IDisposable
 {
+    const string RealtimeModel = "gpt-realtime";
+
     private readonly string dbSchema;
-    private readonly RealtimeConversationClient realtimeConversationClient;
+    private readonly RealtimeClient realtimeClient;
     private readonly Stream micStream;
     private readonly Speaker speaker;
     private readonly Action<UserInteraction> updateCallback;
@@ -21,15 +23,19 @@ public class RealtimeConversationManager<TModel> : IDisposable
     private readonly Func<Task>? onQueryCompletedAsync;
     private readonly Func<DataTable, Task>? onQueryResultAsync;
     private CancellationToken sessionCancellationToken;
-    private RealtimeConversationSession? session;
+    private RealtimeSessionClient? session;
     private string? prevModelJson;
+    private bool isConnected;
+    private Task? inputAudioTask;
+    private bool disposed;
 
-    // Call back into the UI layer to update the data in the form
+    public bool IsSessionActive => session is not null && !disposed;
+
     private readonly AIFunction[] tools;
 
     public RealtimeConversationManager(
         string dbSchema,
-        RealtimeConversationClient realtimeConversationClient,
+        RealtimeClient realtimeClient,
         Stream micStream,
         Speaker speaker,
         Action<UserInteraction> updateCallback,
@@ -40,7 +46,7 @@ public class RealtimeConversationManager<TModel> : IDisposable
         Func<DataTable, Task>? onQueryResultAsync = null)
     {
         this.dbSchema = dbSchema;
-        this.realtimeConversationClient = realtimeConversationClient;
+        this.realtimeClient = realtimeClient;
         this.micStream = micStream;
         this.speaker = speaker;
         this.updateCallback = updateCallback;
@@ -49,13 +55,12 @@ public class RealtimeConversationManager<TModel> : IDisposable
         this.onQueryStartedAsync = onQueryStartedAsync;
         this.onQueryCompletedAsync = onQueryCompletedAsync;
         this.onQueryResultAsync = onQueryResultAsync;
-        tools = [AIFunctionFactory.Create(ExecuteSpokenQueryAsync)];
-
+        tools = [AIFunctionFactory.Create(
+            ExecuteSpokenQueryAsync,
+            name: nameof(ExecuteSpokenQueryAsync),
+            description: "Runs a SQLite SELECT for the user's data question and returns formatted results.")];
     }
 
-    /// <summary>
-    /// Single tool: persist transcript + SQL, run SELECT, return formatted results (and optional UI refresh).
-    /// </summary>
     async Task<string> ExecuteSpokenQueryAsync(string transcribedUserQuestion, string sqliteSelectQuery)
     {
         Console.ForegroundColor = ConsoleColor.Yellow;
@@ -122,113 +127,236 @@ public class RealtimeConversationManager<TModel> : IDisposable
     {
         sessionCancellationToken = cancellationToken;
 
-        var sessionOptions = new ConversationSessionOptions
+        var sessionOptions = new RealtimeConversationSessionOptions
         {
             Instructions =
-                "The user's speech is transcribed for you. For each completed user utterance about the data: " +
-                "(1) Set transcribedUserQuestion to the user's intent in clear natural language (same language they spoke). " +
+                "The user's speech is transcribed for you. Always use the same language as the user's last utterance for everything you say aloud and write: " +
+                "responses, summaries of query results, and follow-up questions. Do not switch to another language unless the user does. " +
+                "For each completed user utterance about the data: " +
+                "(1) Set transcribedUserQuestion to the user's intent in clear natural language, in that same language. " +
                 "(2) Produce exactly one SQLite-compatible SELECT query using only tables/columns from the schema you received. " +
                 "(3) You MUST call ExecuteSpokenQueryAsync once with those two arguments. That tool saves the text, runs the query, and returns row data. " +
+                "After the tool returns, summarize the results for the user in their language only. " +
                 "Never skip the tool call for data questions; do not end the turn with only assistant text when the user asked for data.",
-            Voice = ConversationVoice.Alloy,
-            ContentModalities = ConversationContentModalities.Text,
-            TurnDetectionOptions = ConversationTurnDetectionOptions.CreateServerVoiceActivityTurnDetectionOptions(detectionThreshold: 0.4f, silenceDuration: TimeSpan.FromMilliseconds(150)),
+            AudioOptions = new RealtimeConversationSessionAudioOptions
+            {
+                InputAudioOptions = new RealtimeConversationSessionInputAudioOptions
+                {
+                    TurnDetection = new RealtimeServerVadTurnDetection
+                    {
+                        DetectionThreshold = 0.4f,
+                        SilenceDuration = TimeSpan.FromMilliseconds(150),
+                    },
+                },
+                OutputAudioOptions = new RealtimeConversationSessionOutputAudioOptions
+                {
+                    Voice = RealtimeVoice.Alloy,
+                },
+            },
         };
-        
+
         foreach (var tool in tools)
         {
-            sessionOptions.Tools.Add(tool.ToConversationFunctionTool());
+            sessionOptions.Tools.Add(tool.ToRealtimeFunctionTool());
         }
 
         addMessage("Connecting...");
-        session = await realtimeConversationClient.StartConversationSessionAsync(cancellationToken);
-        await session.ConfigureSessionAsync(sessionOptions, cancellationToken);
+        session = await realtimeClient.StartConversationSessionAsync(RealtimeModel, cancellationToken: cancellationToken);
 
-        // Split dbSchema into chunks and send them as separate messages
-        const int chunkSize = 4000; // Adjust this value based on your needs
+        var setupTask = SetupSessionAsync(session, sessionOptions, cancellationToken);
+        var outputStringBuilder = new StringBuilder();
+
+        try
+        {
+            try
+            {
+                await foreach (RealtimeServerUpdate update in session.ReceiveUpdatesAsync(cancellationToken))
+                {
+                    switch (update)
+                    {
+                        case RealtimeServerUpdateSessionCreated:
+                        case RealtimeServerUpdateSessionUpdated:
+                            MarkConnected();
+                            break;
+
+                        case RealtimeServerUpdateError errorUpdate:
+                            addMessage($"Realtime error [{errorUpdate.Error.Code}]: {errorUpdate.Error.Message}");
+                            break;
+
+                        case RealtimeServerUpdateInputAudioBufferSpeechStarted:
+                            addMessage("Speech started");
+                            await speaker.ClearPlaybackAsync();
+                            break;
+
+                        case RealtimeServerUpdateInputAudioBufferSpeechStopped:
+                            addMessage("Speech finished");
+                            break;
+
+                        case RealtimeServerUpdateResponseOutputAudioDelta audioDelta:
+                            await speaker.EnqueueAsync(audioDelta.Delta.ToArray());
+                            break;
+
+                        case RealtimeServerUpdateResponseOutputAudioTranscriptDone transcriptDone:
+                            outputStringBuilder.Append(transcriptDone.Transcript);
+                            break;
+
+                        case RealtimeServerUpdateResponseOutputTextDone textDone:
+                            outputStringBuilder.Append(textDone.Text);
+                            break;
+
+                        case RealtimeServerUpdateResponseDone responseDone:
+                            if (outputStringBuilder.Length > 0)
+                            {
+                                addMessage(outputStringBuilder.ToString());
+                                outputStringBuilder.Clear();
+                            }
+
+                            await HandleToolCallsAsync(responseDone);
+                            break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                addMessage("Voice session ended");
+            }
+            catch (ObjectDisposedException)
+            {
+                // WebSocket closed during shutdown (navigation, dispose, or reconnect).
+            }
+        }
+        finally
+        {
+            isConnected = false;
+
+            try
+            {
+                await setupTask;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (Exception ex)
+            {
+                addMessage($"Session setup failed: {ex.Message}");
+            }
+
+            if (inputAudioTask is not null)
+            {
+                try
+                {
+                    await inputAudioTask;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
+            DisposeSession();
+        }
+    }
+
+    private void MarkConnected()
+    {
+        if (isConnected || session is null || disposed)
+        {
+            return;
+        }
+
+        isConnected = true;
+        addMessage("Connected");
+        inputAudioTask = session.SendInputAudioAsync(micStream, sessionCancellationToken);
+    }
+
+    private async Task SetupSessionAsync(
+        RealtimeSessionClient session,
+        RealtimeConversationSessionOptions sessionOptions,
+        CancellationToken cancellationToken)
+    {
+        await session.ConfigureConversationSessionAsync(sessionOptions, cancellationToken);
+
+        const int chunkSize = 4000;
+        var chunkCount = (dbSchema.Length + chunkSize - 1) / chunkSize;
         for (int i = 0; i < dbSchema.Length; i += chunkSize)
         {
             int length = Math.Min(chunkSize, dbSchema.Length - i);
             string chunk = dbSchema.Substring(i, length);
-            await session.AddItemAsync(ConversationItem.CreateUserMessage([$"Database schema chunk {i/chunkSize + 1}:\n{chunk}"]));
+            await session.AddItemAsync(
+                RealtimeItem.CreateUserMessageItem($"Database schema chunk {i / chunkSize + 1}:\n{chunk}"),
+                cancellationToken);
         }
 
-        var outputStringBuilder = new StringBuilder();
-
-        await foreach (ConversationUpdate update in session.ReceiveUpdatesAsync(cancellationToken))
-        {
-            switch (update)
-            {
-                case ConversationSessionStartedUpdate:
-                    addMessage("Connected");
-                    _ = Task.Run(async () => await session.SendInputAudioAsync(micStream, cancellationToken));
-                    break;
-
-                case ConversationInputSpeechStartedUpdate:
-                    addMessage("Speech started");
-                    await speaker.ClearPlaybackAsync(); // If the user interrupts, stop talking
-                    break;
-
-                case ConversationInputSpeechFinishedUpdate:
-                    addMessage("Speech finished");
-                    break;
-
-                case ConversationItemStreamingPartDeltaUpdate outputDelta:
-                    // Happens each time a chunk of output is received
-                    await speaker.EnqueueAsync(outputDelta.AudioBytes?.ToArray());
-                    outputStringBuilder.Append(outputDelta.Text ?? outputDelta.AudioTranscript);
-                    break;
-
-                case ConversationResponseFinishedUpdate responseFinished:
-                    // Happens when a "response turn" is finished
-                    addMessage(outputStringBuilder.ToString());
-                    outputStringBuilder.Clear();
-                    break;
-            }
-
-            await HandleToolCallsAsync(update, tools);
-        }
+        addMessage($"Schema loaded ({chunkCount} chunks)");
     }
 
-    public void Dispose()
+    public void Dispose() => DisposeSession();
+
+    private void DisposeSession()
     {
+        if (disposed)
+        {
+            return;
+        }
+
+        disposed = true;
         session?.Dispose();
+        session = null;
     }
 
-    // Called by the UI when the user manually edits the form. This lets the AI know
-    // the latest state in case it needs to make further updates.
     public async Task SetModelData(TModel modelData)
     {
-        if (session is not null)
+        if (session is null || disposed)
+        {
+            return;
+        }
+
+        try
         {
             var newJson = JsonSerializer.Serialize(modelData);
             if (newJson != prevModelJson)
             {
                 prevModelJson = newJson;
-                await session.AddItemAsync(ConversationItem.CreateUserMessage([$"The current modelData value is {newJson}. When updating this later, include all these same values if they are unchanged (or they will be overwritten with nulls)."]));
+                await session.AddItemAsync(RealtimeItem.CreateUserMessageItem(
+                    $"The current modelData value is {newJson}. When updating this later, include all these same values if they are unchanged (or they will be overwritten with nulls)."),
+                    sessionCancellationToken);
             }
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (OperationCanceledException) when (sessionCancellationToken.IsCancellationRequested)
+        {
         }
     }
 
-    private async Task HandleToolCallsAsync(ConversationUpdate update, AIFunction[] tools)
+    private async Task HandleToolCallsAsync(RealtimeServerUpdateResponseDone responseDone)
     {
-        switch (update)
+        if (session is null || disposed)
         {
-            case ConversationItemStreamingFinishedUpdate itemFinished:
-                // If we need to call a tool to update the model, do so
-                if (!string.IsNullOrEmpty(itemFinished.FunctionName) && await itemFinished.GetFunctionCallOutputAsync(tools) is { } output)
-                {
-                    await session!.AddItemAsync(output);
-                }
-                break;
-
-            case ConversationResponseFinishedUpdate responseFinished:
-                // If we added one or more function call results, instruct the model to respond to them
-                if (responseFinished.CreatedItems.Any(item => !string.IsNullOrEmpty(item.FunctionName)))
-                {
-                    await session!.StartResponseAsync();
-                }
-                break;
+            return;
         }
+
+        var functionCalls = responseDone.Response.OutputItems.OfType<RealtimeFunctionCallItem>().ToList();
+        if (functionCalls.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var functionCall in functionCalls)
+        {
+            var output = await functionCall.InvokeToolAsync(tools);
+            if (output is not null)
+            {
+                await session.AddItemAsync(RealtimeItem.CreateFunctionCallOutputItem(functionCall.CallId, output), sessionCancellationToken);
+            }
+        }
+
+        await session.StartResponseAsync(cancellationToken: sessionCancellationToken);
     }
 }

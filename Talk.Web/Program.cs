@@ -8,8 +8,7 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents(o => o.Deta
 
 //ADD OPENAI REALTIME SERVICE
 var openAiClient = new OpenAIClient(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
-var realtimeClient = openAiClient.GetRealtimeConversationClient("gpt-realtime-1.5");
-builder.Services.AddSingleton(realtimeClient);
+builder.Services.AddSingleton(openAiClient.GetRealtimeClient());
 
 // Text-based chat client used for generating SQL from the typed user input.
 var chatClient = openAiClient.GetChatClient("gpt-5.4");

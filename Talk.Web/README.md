@@ -25,7 +25,7 @@ This is a .NET 10 Blazor Server app that lets you ask questions about data in na
 
 ## AI Models 
 
-- `gpt-realtime-1.5`  
+- `gpt-realtime` (GA Realtime API via OpenAI SDK 2.9+)  
   Used for real-time voice interaction.
 - `gpt-5.4`  
   Used for SQL generation and chart-type recommendation through chat completions.
