@@ -7,10 +7,18 @@ which countries generate the most sales, list only top 5?
 top 5 artists by album releases?
 
 ---
-What is the monthly revenue trend in 2011?
-Which are the top 10 genres by total revenue?
-What is the percentage share of total sales by country (Top 8 countries + Other)?
-Is there a relationship between number of items per invoice and invoice total amount
+
+parodik bendras paayamas pagalmetus (Show total income by year)
+parodik visus klientus (Show all customers)
+Parodyk pardavimus pagal metus (Show sales by year)
+
+
+---
+
+Albüm çıkışlarına göre en iyi 5 sanatçı?
+Tür bazında kaç şarkı var?
+En çok satan 3 şarkıyı yaz
+
 ---
 *** INVALID SQL on purpose to test retry mechanism ***
 How does cumulative revenue growth change over time by month?
