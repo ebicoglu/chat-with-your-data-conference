@@ -1,28 +1,10 @@
 ﻿using Chat.Console.Services;
 using Chat.Console.Services.ChartService;
 using Chat.Console.Utils;
-using System.Linq.Expressions;
 using System.Text;
 
 Console.OutputEncoding = Console.InputEncoding = Encoding.UTF8;
 const string connectionString = "Data Source=Db/chinook.db;Version=3;Read Only=True;";
-
-/*
-which artists have the most albums?
-how many songs are there in each genre?
-write down the top 3 best-selling songs?
-which music track is related to festival?
-which countries generate the most sales, list only top 5?
-how many invoices were created per month in 2009? Show in YYYY-MM format.
----
-What is the monthly revenue trend in 2011?
-Which are the top 10 genres by total revenue?
-What is the percentage share of total sales by country (Top 8 countries + Other)?
-Is there a relationship between number of items per invoice and invoice total amount
-
-*** INVALID SQL on purpose to test retry mechanism ***
-How does cumulative revenue growth change over time by month?
-*/
 
 do
 {
