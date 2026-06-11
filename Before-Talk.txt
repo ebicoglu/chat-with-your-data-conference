@@ -3,9 +3,9 @@ QUESTIONS:
 ENGLISH:
 write the top 3 best-selling songs.
 which music track is related to festival?
-how many invoices were created per month in 2009? Show in YYYY-MM format.
-which countries generate the most sales, list only top 5?
-top 5 artists by album releases?
+how many invoices were created per month in 2009? 
+list the top 5 countries generating the most sales
+top 5 artists by album releases
 
 ---
 LITHUANIAN:
