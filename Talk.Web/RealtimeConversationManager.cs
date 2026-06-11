@@ -203,7 +203,11 @@ public class RealtimeConversationManager<TModel> : IDisposable
                             break;
 
                         case RealtimeServerUpdateError errorUpdate:
-                            addMessage($"Realtime error [{errorUpdate.Error.Code}]: {errorUpdate.Error.Message}");
+                            // Benign race: stop was requested after the response already finished.
+                            if (!string.Equals(errorUpdate.Error.Code, "response_cancel_not_active", StringComparison.Ordinal))
+                            {
+                                addMessage($"Realtime error [{errorUpdate.Error.Code}]: {errorUpdate.Error.Message}");
+                            }
                             break;
 
                         case RealtimeServerUpdateInputAudioBufferSpeechStarted:
@@ -330,12 +334,17 @@ public class RealtimeConversationManager<TModel> : IDisposable
             return;
         }
 
+        // Speaker playback can outlive the server response; only cancel when one is still streaming.
+        var hadActiveServerResponse = isAssistantSpeaking;
         SetAssistantSpeaking(false);
 
         try
         {
             await speaker.ClearPlaybackAsync();
-            await session.CancelResponseAsync(sessionCancellationToken);
+            if (hadActiveServerResponse)
+            {
+                await session.CancelResponseAsync(sessionCancellationToken);
+            }
             addMessage("Assistant stopped");
         }
         catch (ObjectDisposedException)
