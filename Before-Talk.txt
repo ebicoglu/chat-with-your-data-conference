@@ -8,11 +8,43 @@ ENGLISH:
 ---
 
 SPANISH:
-* Dime las 3 canciones más vendidas.
-* ¿Qué pista musical está relacionada con un festival?
-* ¿Cuántas facturas se crearon por mes en 2009?
-* Enumera los 5 países que generan más ventas.
-* ¿Quiénes son los 5 cantantes con más álbumes publicados?
+ 
+ **¿Cuántos clientes hay?**
+ *(How many customers are there?)*
+ Pronunciation: *KWAN-tos klee-EN-tes eye*
+
+ **¿Cuál es la canción más larga?**
+ *(What is the longest song?)*
+ Pronunciation: *kwal es la kan-see-ON mahs LAR-ga*
+ 
+ **¿Cuántas canciones hay?**
+ *(How many songs are there?)*
+ Pronunciation: *KWAN-tas kan-see-OH-nes eye*
+ 
+. **¿Qué artista tiene más álbumes?**
+  *(Which artist has the most albums?)*
+  Pronunciation: *keh ar-TEES-ta tee-EH-neh mahs AL-boo-mes*
+
+ **¿Quién es el artista más popular?**
+ *(Who is the most popular artist?)*
+ Pronunciation: *kee-EN es el ar-TEES-ta mahs po-poo-LAR*
+
+ **¿Quién compró más música?**
+ *(Who bought the most music?)*
+ Pronunciation: *kee-EN kom-PRO mahs MOO-see-ka*
+
+ **¿Qué país tiene más clientes?**
+ *(Which country has the most customers?)*
+ Pronunciation: *keh pah-EES tee-EH-neh mahs klee-EN-tes*
+
+ **¿Cuál es el género más popular?**
+ *(What is the most popular genre?)*
+ Pronunciation: *kwal es el HEN-eh-ro mahs po-poo-LAR*
+
+
+ **¿Cuál fue la última factura?**
+ *(What was the last invoice?)*
+ Pronunciation: *kwal fweh la OOL-tee-ma fak-TOO-ra*
 
 
 ---
