@@ -72,7 +72,7 @@
                 </div>
             </div>
         </EditForm>
-
+         
         @if (isRunningSql || isRenderingDataTable)
         {
             <div class="mt-4 p-4 border rounded-lg bg-white">
@@ -118,6 +118,10 @@
                 @if (!string.IsNullOrWhiteSpace(lastResultUserQuestion) || isAiSpeaking)
                 {
                     <div class="result-header-row">
+                        @if (isAiSpeaking)
+                        {
+                            <img src="images/ai-talking.gif" width="40" />
+                        }
                         <h2 class="text-lg font-semibold text-gray-900 leading-snug">@lastResultUserQuestion</h2>
                         @if (isAiSpeaking)
                         {
@@ -126,7 +130,7 @@
                                     @onclick="StopAssistantSpeechAsync"
                                     title="Stop the assistant from speaking"
                                     aria-label="Stop">
-                                <img src="images/stop.png" />
+                                <img src="images/stop-ai.png" />
                             </button>
                         }
                     </div>
