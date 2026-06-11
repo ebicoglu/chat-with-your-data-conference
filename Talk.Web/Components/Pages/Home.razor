@@ -16,7 +16,7 @@
 
 <div class="flex flex-row gap-4 items-start w-full">
     <div class="flex-1 min-w-0">
-        <Speaker @ref="@speaker" />
+        <Speaker @ref="@speaker" OnPlaybackStateChanged="OnSpeakerPlaybackStateChanged" />
 
         <EditForm EditContext="@editContext">
             <ObjectGraphDataAnnotationsValidator />
@@ -26,7 +26,7 @@
                     <h1 class="flex-1 text-center text-3xl sm:text-4xl font-bold tracking-tight">🗣️ Talk to Your Data</h1>
                     <MicControl Status="micStatus" OnClick="ChangeMicStatusAsync" class="ml-4 mr-4 shrink-0" />
                 </div>
-        
+
                 <label>User Input:</label>
                 <div class="flex gap-2 items-stretch">
                     <InputTextArea @bind-Value="@_userInteraction.UserInput" class="flex-1 p-4 border rounded" />
@@ -115,9 +115,21 @@
         else if (resultData is not null)
         {
             <div class="mt-4 p-4 border rounded-lg bg-white">
-                @if (!string.IsNullOrWhiteSpace(lastResultUserQuestion))
+                @if (!string.IsNullOrWhiteSpace(lastResultUserQuestion) || isAiSpeaking)
                 {
-                    <h2 class="text-lg font-semibold text-gray-900 mb-2 leading-snug">@lastResultUserQuestion</h2>
+                    <div class="result-header-row">
+                        <h2 class="text-lg font-semibold text-gray-900 leading-snug">@lastResultUserQuestion</h2>
+                        @if (isAiSpeaking)
+                        {
+                            <button type="button"
+                                    class="stop-speaking-btn"
+                                    @onclick="StopAssistantSpeechAsync"
+                                    title="Stop the assistant from speaking"
+                                    aria-label="Stop">
+                                <img src="images/stop.png" />
+                            </button>
+                        }
+                    </div>
                     <hr style="margin-bottom: 15px;" />
                 }
                 <div class="flex items-center justify-between mb-3">
@@ -245,6 +257,7 @@
     DataTable? resultData;
     string? lastResultUserQuestion;
     MicControl.MicStatus micStatus = MicControl.MicStatus.Disconnected;
+    bool isAiSpeaking;
     bool isGenerating;
     bool isRunningSql;
     bool isExportingExcel;
@@ -382,6 +395,23 @@
         isRunningSql = false;
         StateHasChanged();
     });
+
+    private void OnSpeakerPlaybackStateChanged(bool isPlaying)
+    {
+        isAiSpeaking = isPlaying;
+        StateHasChanged();
+    }
+
+    private async Task StopAssistantSpeechAsync()
+    {
+        if (realtimeConversationManager is null)
+        {
+            return;
+        }
+
+        await realtimeConversationManager.StopAssistantSpeechAsync();
+        isAiSpeaking = false;
+    }
 
     private Task OnVoiceQueryResultAsync(DataTable dt) => InvokeAsync(() =>
     {

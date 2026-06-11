@@ -1,23 +1,46 @@
-﻿export async function start() {
+﻿export async function start(dotNetRef) {
     await navigator.mediaDevices.getUserMedia({ video: false, audio: { sampleRate: 24000 } });
     const audioCtx = new AudioContext({ sampleRate: 24000 });
     const pendingSources = [];
     let currentPlaybackEndTime = 0;
+    let isPlaying = false;
+
+    function setPlaying(value) {
+        if (isPlaying === value) {
+            return;
+        }
+        isPlaying = value;
+        dotNetRef?.invokeMethodAsync("NotifyPlaybackState", value);
+    }
 
     return {
         enqueue(data) {
             const bufferSource = toAudioBufferSource(audioCtx, data);
             pendingSources.push(bufferSource);
-            bufferSource.onended = () => pendingSources.splice(pendingSources.indexOf(bufferSource), 1);
+            bufferSource.onended = () => {
+                const index = pendingSources.indexOf(bufferSource);
+                if (index !== -1) {
+                    pendingSources.splice(index, 1);
+                }
+                if (pendingSources.length === 0) {
+                    currentPlaybackEndTime = 0;
+                    setPlaying(false);
+                }
+            };
             currentPlaybackEndTime = Math.max(currentPlaybackEndTime, audioCtx.currentTime);
             bufferSource.start(currentPlaybackEndTime);
             currentPlaybackEndTime += bufferSource.buffer.duration;
+            setPlaying(true);
         },
 
         clear() {
-            pendingSources.forEach(source => source.stop());
+            pendingSources.forEach(source => {
+                source.onended = null;
+                source.stop();
+            });
             pendingSources.length = 0;
             currentPlaybackEndTime = 0;
+            setPlaying(false);
         }
     };
 }

@@ -10,7 +10,8 @@ namespace Talk.Web;
 
 public class RealtimeConversationManager<TModel> : IDisposable
 {
-    const string RealtimeModel = "gpt-realtime";
+    const string RealtimeClientModel = "gpt-realtime";
+    const string RealtimeAudioTranscribeModel = "gpt-4o-transcribe";
 
     private readonly string dbSchema;
     private readonly RealtimeClient realtimeClient;
@@ -22,16 +23,20 @@ public class RealtimeConversationManager<TModel> : IDisposable
     private readonly Func<Task>? onQueryStartedAsync;
     private readonly Func<Task>? onQueryCompletedAsync;
     private readonly Func<DataTable, Task>? onQueryResultAsync;
+    private readonly Action<bool>? onAssistantSpeakingChanged;
     private CancellationToken sessionCancellationToken;
     private RealtimeSessionClient? session;
     private string? prevModelJson;
     private string? lastUserTranscript;
     private string? lastUserQuestion;
     private bool isConnected;
+    private bool isAssistantSpeaking;
     private Task? inputAudioTask;
     private bool disposed;
 
     public bool IsSessionActive => session is not null && !disposed;
+
+    public bool IsAssistantSpeaking => isAssistantSpeaking;
 
     private readonly AIFunction[] tools;
 
@@ -45,7 +50,8 @@ public class RealtimeConversationManager<TModel> : IDisposable
         RetryService? retryService = null,
         Func<Task>? onQueryStartedAsync = null,
         Func<Task>? onQueryCompletedAsync = null,
-        Func<DataTable, Task>? onQueryResultAsync = null)
+        Func<DataTable, Task>? onQueryResultAsync = null,
+        Action<bool>? onAssistantSpeakingChanged = null)
     {
         this.dbSchema = dbSchema;
         this.realtimeClient = realtimeClient;
@@ -57,6 +63,7 @@ public class RealtimeConversationManager<TModel> : IDisposable
         this.onQueryStartedAsync = onQueryStartedAsync;
         this.onQueryCompletedAsync = onQueryCompletedAsync;
         this.onQueryResultAsync = onQueryResultAsync;
+        this.onAssistantSpeakingChanged = onAssistantSpeakingChanged;
         tools = [AIFunctionFactory.Create(
             ExecuteSpokenQueryAsync,
             name: nameof(ExecuteSpokenQueryAsync),
@@ -156,7 +163,7 @@ public class RealtimeConversationManager<TModel> : IDisposable
                 {
                     AudioTranscriptionOptions = new RealtimeAudioTranscriptionOptions
                     {
-                        Model = "gpt-4o-transcribe",
+                        Model = RealtimeAudioTranscribeModel,
                     },
                     TurnDetection = new RealtimeSemanticVadTurnDetection
                     {
@@ -177,7 +184,7 @@ public class RealtimeConversationManager<TModel> : IDisposable
         }
 
         addMessage("Connecting...");
-        session = await realtimeClient.StartConversationSessionAsync(RealtimeModel, cancellationToken: cancellationToken);
+        session = await realtimeClient.StartConversationSessionAsync(RealtimeClientModel, cancellationToken: cancellationToken);
 
         var setupTask = SetupSessionAsync(session, sessionOptions, cancellationToken);
         var outputStringBuilder = new StringBuilder();
@@ -202,6 +209,7 @@ public class RealtimeConversationManager<TModel> : IDisposable
                         case RealtimeServerUpdateInputAudioBufferSpeechStarted:
                             addMessage("Speech started");
                             await speaker.ClearPlaybackAsync();
+                            SetAssistantSpeaking(false);
                             break;
 
                         case RealtimeServerUpdateInputAudioBufferSpeechStopped:
@@ -217,6 +225,7 @@ public class RealtimeConversationManager<TModel> : IDisposable
                             break;
 
                         case RealtimeServerUpdateResponseOutputAudioDelta audioDelta:
+                            SetAssistantSpeaking(true);
                             await speaker.EnqueueAsync(audioDelta.Delta.ToArray());
                             break;
 
@@ -229,6 +238,7 @@ public class RealtimeConversationManager<TModel> : IDisposable
                             break;
 
                         case RealtimeServerUpdateResponseDone responseDone:
+                            SetAssistantSpeaking(false);
                             if (outputStringBuilder.Length > 0)
                             {
                                 addMessage(outputStringBuilder.ToString());
@@ -296,6 +306,48 @@ public class RealtimeConversationManager<TModel> : IDisposable
         isConnected = true;
         addMessage("Connected");
         inputAudioTask = session.SendInputAudioAsync(micStream, sessionCancellationToken);
+    }
+
+    private void SetAssistantSpeaking(bool speaking)
+    {
+        if (isAssistantSpeaking == speaking)
+        {
+            return;
+        }
+
+        isAssistantSpeaking = speaking;
+        onAssistantSpeakingChanged?.Invoke(speaking);
+    }
+
+    /// <summary>
+    /// Stops the assistant while it is streaming voice: cancels the in-progress response
+    /// on the server and clears any audio still queued for playback.
+    /// </summary>
+    public async Task StopAssistantSpeechAsync()
+    {
+        if (session is null || disposed)
+        {
+            return;
+        }
+
+        SetAssistantSpeaking(false);
+
+        try
+        {
+            await speaker.ClearPlaybackAsync();
+            await session.CancelResponseAsync(sessionCancellationToken);
+            addMessage("Assistant stopped");
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (OperationCanceledException) when (sessionCancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            addMessage($"Stop failed: {ex.Message}");
+        }
     }
 
     private async Task SetupSessionAsync(

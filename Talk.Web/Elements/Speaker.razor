@@ -4,6 +4,10 @@
 @code {
     IJSObjectReference? module;
     IJSObjectReference? speaker;
+    DotNetObjectReference<Speaker>? selfReference;
+
+    [Parameter]
+    public EventCallback<bool> OnPlaybackStateChanged { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -14,12 +18,23 @@
 
         try
         {
-            module = await JS.InvokeAsync<IJSObjectReference>("import", "./Elements/Speaker.razor.js");
-            speaker = await module.InvokeAsync<IJSObjectReference>("start");
+            selfReference = DotNetObjectReference.Create(this);
+            var cacheBuster = typeof(Speaker).Assembly.ManifestModule.ModuleVersionId.ToString("N");
+            module = await JS.InvokeAsync<IJSObjectReference>("import", $"./Elements/Speaker.razor.js?v={cacheBuster}");
+            speaker = await module.InvokeAsync<IJSObjectReference>("start", selfReference);
         }
         catch (Exception ex) when (ex is OperationCanceledException or JSDisconnectedException)
         {
             // The circuit was disconnected or disposed before JS interop finished. Nothing to do.
+        }
+    }
+
+    [JSInvokable]
+    public async Task NotifyPlaybackState(bool isPlaying)
+    {
+        if (OnPlaybackStateChanged.HasDelegate)
+        {
+            await OnPlaybackStateChanged.InvokeAsync(isPlaying);
         }
     }
 
@@ -59,6 +74,10 @@
         catch (JSDisconnectedException)
         {
             // Not an error
+        }
+        finally
+        {
+            selfReference?.Dispose();
         }
     }
 }

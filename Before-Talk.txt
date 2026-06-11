@@ -1,27 +1,29 @@
-QUESTIONS:
-
 ENGLISH:
-tell me the top 3 best-selling songs.
-which music track is related to festival?
-how many invoices were created per month in 2009? 
-list the top 5 countries generating the most sales
-who are the top 5 singers by album releases?
+* tell me the top 3 best-selling songs.
+* which music track is related to festival?
+* how many invoices were created per month in 2009? 
+* list the top 5 countries generating the most sales
+* who are the top 5 singers by album releases?
+
+---
+
+SPANISH:
+* Dime las 3 canciones más vendidas.
+* ¿Qué pista musical está relacionada con un festival?
+* ¿Cuántas facturas se crearon por mes en 2009?
+* Enumera los 5 países que generan más ventas.
+* ¿Quiénes son los 5 cantantes con más álbumes publicados?
 
 
 ---
-LITHUANIAN:
-parodik bendras paayamas pagalmetus (Show total income by year)
-parodik visus klientus (Show all customers)
-Parodik pardavimus pagal metus (Show sales by year)
-Parodik pehn-ki geria-sus klientus (Show top 5 customers)
 
----
 TURKISH:
-Tür bazında kaç şarkı var?
-En çok satan 3 şarkıyı yaz
-Albüm çıkışlarına göre en iyi 5 sanatçı?
+* Tür bazında kaç şarkı var?
+* En çok satan 3 şarkıyı yaz
+* Albüm çıkışlarına göre en iyi 5 sanatçı?
 
 ---
+
 *** INVALID SQL on purpose to test retry mechanism ***
 How does cumulative revenue growth change over time by month?
 
