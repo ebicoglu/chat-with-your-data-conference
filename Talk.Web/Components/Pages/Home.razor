@@ -236,6 +236,7 @@
     IJSObjectReference? mic;
     DotNetObjectReference<Home>? selfReference;
     Pipe micPipe = new();
+    readonly SemaphoreSlim micWriteLock = new(1, 1);
     Speaker? speaker;
     CancellationTokenSource disposalCts = new();
     CancellationTokenSource? realtimeSessionCts;
@@ -397,14 +398,35 @@
     });
 
     [JSInvokable]
-    public Task ReceiveAudioDataAsync(byte[] data)
+    public async Task ReceiveAudioDataAsync(byte[] data)
     {
         if (data.Length == 0)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        return InvokeAsync(() => micPipe.Writer.WriteAsync(data).AsTask());
+        // Audio chunks arrive concurrently from JS. Pipe.WriteAsync does not allow
+        // overlapping writes, so serialize them through a semaphore.
+        try
+        {
+            await micWriteLock.WaitAsync(disposalCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        try
+        {
+            await micPipe.Writer.WriteAsync(data, disposalCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            micWriteLock.Release();
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -414,6 +436,7 @@
         selfReference?.Dispose();
         await disposalCts.CancelAsync();
         disposalCts.Dispose();
+        micWriteLock.Dispose();
 
         try
         {
