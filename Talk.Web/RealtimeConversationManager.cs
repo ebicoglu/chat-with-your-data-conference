@@ -25,6 +25,8 @@ public class RealtimeConversationManager<TModel> : IDisposable
     private CancellationToken sessionCancellationToken;
     private RealtimeSessionClient? session;
     private string? prevModelJson;
+    private string? lastUserTranscript;
+    private string? lastUserQuestion;
     private bool isConnected;
     private Task? inputAudioTask;
     private bool disposed;
@@ -63,6 +65,13 @@ public class RealtimeConversationManager<TModel> : IDisposable
 
     async Task<string> ExecuteSpokenQueryAsync(string transcribedUserQuestion, string sqliteSelectQuery)
     {
+        // Captured synchronously with the tool call (unlike the async audio transcription), so it is the
+        // most reliable signal of the language the user actually used for this specific turn.
+        if (!string.IsNullOrWhiteSpace(transcribedUserQuestion))
+        {
+            lastUserQuestion = transcribedUserQuestion.Trim();
+        }
+
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine(sqliteSelectQuery);
         Console.ResetColor();
@@ -131,8 +140,10 @@ public class RealtimeConversationManager<TModel> : IDisposable
         {
             Instructions =
                 "You help users query a SQLite database by voice. " +
-                "Detect the language of each user utterance and reply only in that same language (spoken and written), including summaries of query results. " +
-                "Do not switch languages unless the user does. " +
+                "Always reply in EXACTLY the same language the user just spoke in. " +
+                "Mirror the user's language for every word you speak or write, including summaries of query results, confirmations, and any clarifying remarks. " +
+                "Never translate the user's language into another language. Never switch languages on your own—only unless the user wants to change the active language. " +
+                "Examples: if the user speaks English, answer in English; if Spanish, answer in Spanish. " +
                 "When the user asks for data (counts, lists, sales, totals, charts), call ExecuteSpokenQueryAsync immediately—do not ask clarifying questions in another language. " +
                 "For each data question: " +
                 "(1) transcribedUserQuestion = user intent in the language they used; " +
@@ -200,6 +211,7 @@ public class RealtimeConversationManager<TModel> : IDisposable
                         case RealtimeServerUpdateConversationItemInputAudioTranscriptionCompleted transcriptionDone:
                             if (!string.IsNullOrWhiteSpace(transcriptionDone.Transcript))
                             {
+                                lastUserTranscript = transcriptionDone.Transcript.Trim();
                                 addMessage($"Heard: {transcriptionDone.Transcript}");
                             }
                             break;
@@ -369,6 +381,36 @@ public class RealtimeConversationManager<TModel> : IDisposable
             }
         }
 
-        await session.StartResponseAsync(cancellationToken: sessionCancellationToken);
+        // Re-ground the language right before the summary so the model can't drift to English (or any other language).
+        // The session-level instructions are not always enough once the (English) schema and tool output dominate the context,
+        // so we restate the user's most recent utterance and force a matching reply language for this specific response.
+        var responseOptions = new RealtimeResponseOptions
+        {
+            Instructions = BuildSummaryInstructions(),
+        };
+
+        await session.StartResponseAsync(responseOptions, sessionCancellationToken);
+    }
+
+    private string BuildSummaryInstructions()
+    {
+        // Prefer the question text captured at tool-call time; the async audio transcription can lag behind
+        // (or belong to an earlier turn), which previously let the reply drift to an unrelated language.
+        var userMessage = !string.IsNullOrWhiteSpace(lastUserQuestion)
+            ? lastUserQuestion
+            : lastUserTranscript;
+
+        var instructions =
+            "Summarize the SQL query results for the user in a concise, natural, spoken style. " +
+            "LANGUAGE RULE (highest priority): reply in EXACTLY the same language as the user's question below. " +
+            "Do not default to English. Do not default to German. Do not translate. Do not switch languages. " +
+            "The language of your entire answer MUST match the language of the user's question, word for word.";
+
+        if (!string.IsNullOrWhiteSpace(userMessage))
+        {
+            instructions += $" The user's question was: \"{userMessage}\". Detect the language of that exact sentence and write your answer only in that same language.";
+        }
+
+        return instructions;
     }
 }
