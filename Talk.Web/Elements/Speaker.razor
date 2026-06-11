@@ -12,8 +12,15 @@
             return;
         }
 
-        module = await JS.InvokeAsync<IJSObjectReference>("import", "./Elements/Speaker.razor.js");
-        speaker = await module.InvokeAsync<IJSObjectReference>("start");
+        try
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "./Elements/Speaker.razor.js");
+            speaker = await module.InvokeAsync<IJSObjectReference>("start");
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or JSDisconnectedException)
+        {
+            // The circuit was disconnected or disposed before JS interop finished. Nothing to do.
+        }
     }
 
     public async Task EnqueueAsync(byte[]? audioData)
