@@ -1,14 +1,14 @@
 ---
 
-* tell me the top 3 best-selling songs.
+tell me the top 3 best-selling songs.
 
-* which music track is related to festival?
+which music track is related to festival?
 
-* how many invoices were created per month in 2009? 
+how many invoices were created per month in 2009? 
 
-* list the top 5 countries generating the most sales
+list the top 5 countries generating the most sales
 
-* who are the top 5 singers by album releases?
+who are the top 5 singers by album releases?
 
 ---
 
