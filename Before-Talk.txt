@@ -1,53 +1,39 @@
 ENGLISH:
 * tell me the top 3 best-selling songs.
+
 * which music track is related to festival?
+
 * how many invoices were created per month in 2009? 
+
 * list the top 5 countries generating the most sales
+
 * who are the top 5 singers by album releases?
 
 ---
 
 SPANISH:
  
- **¿Cuántos clientes hay?**
- *(How many customers are there?)*
- Pronunciation: *KWAN-tos klee-EN-tes eye*
+**¿Cuál es la canción más larga?** 95 (which is the longest song)
+kual ezla kannsiyon, mas larga
 
- **¿Cuál es la canción más larga?**
- *(What is the longest song?)*
- Pronunciation: *kwal es la kan-see-ON mahs LAR-ga*
- 
- **¿Cuántas canciones hay?**
- *(How many songs are there?)*
- Pronunciation: *KWAN-tas kan-see-OH-nes eye*
- 
-. **¿Qué artista tiene más álbumes?**
-  *(Which artist has the most albums?)*
-  Pronunciation: *keh ar-TEES-ta tee-EH-neh mahs AL-boo-mes*
+**¿Quién es el artista más popular?** 93  *(Who is the most popular artist?)*
+kiyen es el artista mas popular
 
- **¿Quién es el artista más popular?**
- *(Who is the most popular artist?)*
- Pronunciation: *kee-EN es el ar-TEES-ta mahs po-poo-LAR*
-
- **¿Quién compró más música?**
- *(Who bought the most music?)*
- Pronunciation: *kee-EN kom-PRO mahs MOO-see-ka*
-
- **¿Qué país tiene más clientes?**
- *(Which country has the most customers?)*
- Pronunciation: *keh pah-EES tee-EH-neh mahs klee-EN-tes*
-
- **¿Cuál es el género más popular?**
- *(What is the most popular genre?)*
- Pronunciation: *kwal es el HEN-eh-ro mahs po-poo-LAR*
-
-
- **¿Cuál fue la última factura?**
- *(What was the last invoice?)*
- Pronunciation: *kwal fweh la OOL-tee-ma fak-TOO-ra*
-
+**¿Cuál fue la última factura?** 92  *(What was the last invoice?)*
+kual fuela ultima factura
 
 ---
+
+**¿Qué artista tiene más álbumes?** 92  *(Which artist has the most albums?)*
+key artista tiene mas albumes
+
+**¿Cuántos clientes hay?** 90 *(How many customers are there?)*
+kuantos klientes ay
+
+**¿Cuántas canciones hay?** 90  *(How many songs are there?)*
+kuantas kannsiyones ay
+
+
 
 TURKISH:
 * Tür bazında kaç şarkı var?
