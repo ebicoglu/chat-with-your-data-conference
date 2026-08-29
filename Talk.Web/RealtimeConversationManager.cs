@@ -11,7 +11,7 @@ namespace Talk.Web;
 public class RealtimeConversationManager<TModel> : IDisposable
 {
     const string RealtimeClientModel = "gpt-realtime";
-    const string RealtimeAudioTranscribeModel = "gpt-4o-transcribe";
+    const string RealtimeAudioTranscribeModel = "gpt-transcribe";
 
     private readonly string dbSchema;
     private readonly RealtimeClient realtimeClient;
@@ -164,6 +164,7 @@ public class RealtimeConversationManager<TModel> : IDisposable
                     AudioTranscriptionOptions = new RealtimeAudioTranscriptionOptions
                     {
                         Model = RealtimeAudioTranscribeModel,
+                        Prompt = "Voice questions about the Chinook music store SQLite database: artists, albums, tracks, invoices, customers, playlists, and genres.",
                     },
                     TurnDetection = new RealtimeSemanticVadTurnDetection
                     {
@@ -226,6 +227,10 @@ public class RealtimeConversationManager<TModel> : IDisposable
                                 lastUserTranscript = transcriptionDone.Transcript.Trim();
                                 addMessage($"Heard: {transcriptionDone.Transcript}");
                             }
+                            break;
+
+                        case RealtimeServerUpdateConversationItemInputAudioTranscriptionFailed transcriptionFailed:
+                            addMessage($"Transcription failed: {transcriptionFailed.Error.Message}");
                             break;
 
                         case RealtimeServerUpdateResponseOutputAudioDelta audioDelta:
