@@ -1,14 +1,16 @@
 using Talk.Web.Components;
 using OpenAI;
+using OpenAI.Realtime;
 using Talk.Web.Services;
 using Talk.Web.Services.ChartService;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents().AddInteractiveServerComponents(o => o.DetailedErrors = true);
 
-//ADD OPENAI REALTIME SERVICE
-var openAiClient = new OpenAIClient(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
-builder.Services.AddSingleton(openAiClient.GetRealtimeClient());
+var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+var openAiClient = new OpenAIClient(apiKey);
+
+builder.Services.AddSingleton(new RealtimeClient(apiKey));
 
 // Text-based chat client used for generating SQL from the typed user input.
 var chatClient = openAiClient.GetChatClient("gpt-5.4");
