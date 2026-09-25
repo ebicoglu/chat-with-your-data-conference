@@ -40,11 +40,6 @@ TURKISH:
 * En çok satan 3 şarkıyı yaz
 * Albüm çıkışlarına göre en iyi 5 sanatçı?
 
----
-
-*** INVALID SQL on purpose to test retry mechanism ***
-How does cumulative revenue growth change over time by month?
-
 
 --------------------------------
 
